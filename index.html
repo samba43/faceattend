@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FaceAttend — Smart Attendance System</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --accent: #6ee7b7;
+    --accent2: #818cf8;
+    --accent3: #f472b6;
+    --text: #f0f0f8;
+    --text2: #8888aa;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --success: #6ee7b7;
+    --card-shadow: 0 4px 32px rgba(0,0,0,0.5);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Login Page */
+  .login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .login-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 20%, rgba(110,231,183,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 80% 80%, rgba(129,140,248,0.08) 0%, transparent 60%),
+      var(--bg);
+  }
+  .login-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .login-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 48px;
+    width: 420px;
+    box-shadow: var(--card-shadow), 0 0 80px rgba(110,231,183,0.05);
+  }
+  .login-logo {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 36px;
+  }
+  .login-logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .login-logo h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .login-logo span { color: var(--accent); }
+  .login-subtitle { color: var(--text2); font-size: 14px; margin-bottom: 32px; }
+  .field-group { margin-bottom: 20px; }
+  .field-label { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .field-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .btn-primary {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), #34d399);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-top: 8px;
+  }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .error-msg { color: var(--danger); font-size: 13px; margin-top: 12px; text-align: center; }
+
+  /* App Layout */
+  .app-layout { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+  }
+  .sidebar-logo {
+    padding: 0 24px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .sidebar-logo h2 { font-size: 17px; font-weight: 800; }
+  .sidebar-logo span { color: var(--accent); }
+  .sidebar-nav { flex: 1; padding: 20px 12px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+    margin-bottom: 4px;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(110,231,183,0.1); color: var(--accent); }
+  .nav-item .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+  .sidebar-footer {
+    padding: 16px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .logout-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--danger);
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.15s;
+    width: 100%;
+    background: none; border: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .logout-btn:hover { background: rgba(248,113,113,0.1); }
+
+  /* Main Content */
+  .main-content { margin-left: 240px; flex: 1; padding: 32px; min-height: 100vh; }
+
+  /* Page Header */
+  .page-header { margin-bottom: 28px; }
+  .page-header h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .page-header p { color: var(--text2); font-size: 14px; margin-top: 4px; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  /* Dashboard */
+  .dash-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .stat-card.green::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .stat-card.purple::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .stat-card.pink::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .stat-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; }
+  .stat-value.green { color: var(--accent); }
+  .stat-value.purple { color: var(--accent2); }
+  .stat-value.pink { color: var(--accent3); }
+
+  /* Session selector */
+  .session-bar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .session-chip {
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .session-chip.active { border-color: var(--accent); background: rgba(110,231,183,0.1); color: var(--accent); }
+  .session-chip:hover:not(.active) { border-color: var(--text2); color: var(--text); }
+
+  /* Action Buttons */
+  .btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 8px; }
+  .btn-accent { background: linear-gradient(135deg, var(--accent), #34d399); color: #0a0a0f; font-weight: 700; }
+  .btn-accent:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--text2); background: var(--surface2); }
+  .btn-danger { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+  .btn-danger:hover { background: rgba(248,113,113,0.25); }
+  .btn-sm { padding: 7px 14px; font-size: 13px; }
+
+  /* Attendance Mark Page */
+  .camera-area {
+    display: flex; gap: 24px;
+    align-items: flex-start;
+  }
+  .camera-box {
+    flex: 1;
+    background: var(--surface2);
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    min-height: 340px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .camera-box video { width: 100%; height: 340px; object-fit: cover; border-radius: 14px; display: block; position: relative; z-index: 1; }
+  .camera-box img { width: 100%; height: 340px; object-fit: cover; border-radius: 14px; }
+  .camera-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    background: rgba(10,10,15,0.85);
+    z-index: 2;
+  }
+  .camera-icon { font-size: 48px; opacity: 0.4; }
+  .attendance-list-panel { width: 320px; }
+  .attendance-entry {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px;
+    background: var(--surface2);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+  }
+  .attendance-entry .student-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent2), var(--accent3));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+    overflow: hidden;
+  }
+  .attendance-entry .student-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .attendance-entry .student-name { font-size: 14px; font-weight: 500; flex: 1; }
+  .status-badge {
+    padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .status-badge.present { background: rgba(110,231,183,0.15); color: var(--accent); }
+  .status-badge.absent { background: rgba(248,113,113,0.15); color: var(--danger); }
+
+  /* Students Table */
+  .students-table { width: 100%; border-collapse: collapse; }
+  .students-table th {
+    text-align: left; padding: 12px 16px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text2); border-bottom: 1px solid var(--border);
+  }
+  .students-table td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .students-table tr:last-child td { border-bottom: none; }
+  .students-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .student-row-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; overflow: hidden;
+  }
+  .student-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    width: 480px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s;
+    box-shadow: var(--card-shadow);
+  }
+  .modal h3 { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
+
+  /* Photo capture in modal */
+  .photo-options { display: flex; gap: 12px; margin-bottom: 16px; }
+  .photo-option-btn {
+    flex: 1; padding: 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); cursor: pointer; font-size: 13px;
+    transition: all 0.15s; text-align: center;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .photo-option-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(110,231,183,0.08); }
+  .photo-preview {
+    width: 100%; height: 160px; border-radius: 10px;
+    object-fit: cover; border: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .photo-placeholder {
+    width: 100%; height: 160px; border-radius: 10px;
+    border: 2px dashed var(--border); background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px; color: var(--text2);
+    font-size: 13px; margin-bottom: 8px;
+  }
+  .photo-placeholder .ph-icon { font-size: 36px; opacity: 0.4; }
+
+  /* Reports */
+  .report-date-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .date-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+  }
+  .date-input:focus { border-color: var(--accent); }
+  .report-summary { display: flex; gap: 16px; margin-bottom: 24px; }
+  .report-stat {
+    flex: 1; padding: 16px 20px;
+    background: var(--surface2); border-radius: 12px;
+    text-align: center;
+  }
+  .report-stat .rs-val { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; }
+  .report-stat .rs-lbl { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 32px; right: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    font-size: 14px;
+    box-shadow: var(--card-shadow);
+    animation: slideUp 0.3s;
+    z-index: 9999;
+    display: flex; align-items: center; gap: 10px;
+    max-width: 320px;
+  }
+  .toast.success { border-color: var(--accent); }
+  .toast.error { border-color: var(--danger); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 10px; padding: 4px; margin-bottom: 24px; width: fit-content; }
+  .tab { padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all 0.15s; }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+
+  /* Select */
+  .field-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field-select:focus { border-color: var(--accent); }
+
+  .scan-ring {
+    position: absolute;
+    width: 180px; height: 180px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    animation: pulse-ring 2s infinite;
+    pointer-events: none;
+    z-index: 3;
+  }
+  @keyframes pulse-ring {
+    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 0.4; transform: translate(-50%, -50%) scale(1.08); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  .scan-corners {
+    position: absolute; inset: 20px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .scan-corner {
+    position: absolute;
+    width: 20px; height: 20px;
+    border-color: var(--accent);
+    border-style: solid;
+  }
+  .sc-tl { top: 0; left: 0; border-width: 2px 0 0 2px; border-radius: 4px 0 0 0; }
+  .sc-tr { top: 0; right: 0; border-width: 2px 2px 0 0; border-radius: 0 4px 0 0; }
+  .sc-bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; border-radius: 0 0 0 4px; }
+  .sc-br { bottom: 0; right: 0; border-width: 0 2px 2px 0; border-radius: 0 0 4px 0; }
+
+  .recognized-banner {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(10,10,15,0.95));
+    padding: 20px 16px 16px;
+    text-align: center;
+    z-index: 4;
+  }
+  .recognized-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--accent); }
+  .recognized-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* Shimmer skeleton */
+  .skeleton { background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%); background-size: 200%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+  @keyframes shimmer { 0% { background-position: 200%; } 100% { background-position: -200%; } }
+
+  /* Search bar */
+  .search-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    width: 240px;
+  }
+  .search-input:focus { border-color: var(--accent); }
+
+  /* Date badge */
+  .date-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 60px 20px;
+    color: var(--text2);
+  }
+  .empty-state .es-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+  .empty-state p { font-size: 15px; }
+  .empty-state small { font-size: 13px; opacity: 0.7; }
+
+  /* Flex utils */
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .gap-16 { gap: 16px; }
+  .mb-16 { margin-bottom: 16px; }
+  .mb-24 { margin-bottom: 24px; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .main-content { margin-left: 0; padding: 20px; }
+    .dash-stats { grid-template-columns: 1fr; }
+    .camera-area { flex-direction: column; }
+    .attendance-list-panel { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const today = () => new Date().toISOString().split('T')[0];
+const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+const fmtTime = () => new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+const uid = () => Math.random().toString(36).slice(2,9);
+
+// ─── Initial Demo Data ────────────────────────────────────────────────────────
+const DEMO_STUDENTS = [
+  { id:'s1', name:'Aisha Sharma', phone:'9876543210', email:'aisha@email.com', joinDate:'2024-01-10', photo:null, faceRegistered: true },
+  { id:'s2', name:'Rohit Kumar', phone:'9876543211', email:'rohit@email.com', joinDate:'2024-01-15', photo:null, faceRegistered: true },
+  { id:'s3', name:'Priya Nair', phone:'9876543212', email:'priya@email.com', joinDate:'2024-02-01', photo:null, faceRegistered: true },
+  { id:'s4', name:'Arjun Patel', phone:'9876543213', email:'arjun@email.com', joinDate:'2024-02-10', photo:null, faceRegistered: false },
+  { id:'s5', name:'Meena Reddy', phone:'9876543214', email:'meena@email.com', joinDate:'2024-03-01', photo:null, faceRegistered: true },
+];
+
+const DEFAULT_SESSIONS = ['Morning 9AM', 'Afternoon 2PM', 'Evening 6PM'];
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+const store = {
+  get: (k, def) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function Toast({ msg, type, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
+  const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+  return <div className={`toast ${type}`}><span>{icon}</span><span>{msg}</span></div>;
+}
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState('admin@faceattend.com');
+  const [pass, setPass] = useState('admin123');
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = () => {
+    setErr('');
+    if (!email || !pass) { setErr('Please fill all fields'); return; }
+    setLoading(true);
+    setTimeout(() => {
+      if (email === 'admin@faceattend.com' && pass === 'admin123') {
+        onLogin({ email, name: 'Admin' });
+      } else {
+        setErr('Invalid credentials. Use admin@faceattend.com / admin123');
+        setLoading(false);
+      }
+    }, 800);
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-bg"/>
+      <div className="login-grid"/>
+      <div className="login-card">
+        <div className="login-logo">
+          <div className="login-logo-icon">🎭</div>
+          <h1>Face<span>Attend</span></h1>
+        </div>
+        <p className="login-subtitle">Smart face recognition attendance for coaching centers</p>
+        <div className="field-group">
+          <div className="field-label">Email Address</div>
+          <input className="field-input" type="email" value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            placeholder="admin@faceattend.com"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Password</div>
+          <input className="field-input" type="password" value={pass}
+            onChange={e => setPass(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            placeholder="••••••••"/>
+        </div>
+        <button className="btn-primary" onClick={handleLogin} disabled={loading}>
+          {loading ? 'Signing in...' : '→ Sign In'}
+        </button>
+        {err && <div className="error-msg">{err}</div>}
+        <div style={{marginTop:20,padding:'12px 16px',background:'rgba(110,231,183,0.06)',borderRadius:10,border:'1px solid rgba(110,231,183,0.15)'}}>
+          <div style={{fontSize:12,color:'var(--text2)',marginBottom:4}}>Demo Credentials</div>
+          <div style={{fontSize:13,color:'var(--accent)',fontFamily:'monospace'}}>admin@faceattend.com / admin123</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+function Sidebar({ page, setPage, onLogout }) {
+  const nav = [
+    { id: 'dashboard', icon: '⚡', label: 'Dashboard' },
+    { id: 'mark',      icon: '📷', label: 'Mark Attendance' },
+    { id: 'students',  icon: '👥', label: 'Students' },
+    { id: 'records',   icon: '📋', label: 'Attendance Records' },
+    { id: 'reports',   icon: '📊', label: 'Reports' },
+    { id: 'settings',  icon: '⚙️', label: 'Settings' },
+  ];
+  return (
+    <div className="sidebar">
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-icon">🎭</div>
+        <h2>Face<span>Attend</span></h2>
+      </div>
+      <nav className="sidebar-nav">
+        {nav.map(n => (
+          <div key={n.id} className={`nav-item ${page===n.id?'active':''}`} onClick={() => setPage(n.id)}>
+            <span className="nav-icon">{n.icon}</span>
+            <span>{n.label}</span>
+          </div>
+        ))}
+      </nav>
+      <div className="sidebar-footer">
+        <button className="logout-btn" onClick={onLogout}>
+          <span>🚪</span><span>Logout</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+function Dashboard({ students, attendance, setPage, sessions }) {
+  const todayStr = today();
+  const todayAtt = attendance.filter(a => a.date === todayStr);
+  const presentToday = todayAtt.filter(a => a.status === 'Present').length;
+  const absentToday = students.length - presentToday;
+
+  return (
+    <div>
+      <div className="page-header">
+        <h2>Dashboard</h2>
+        <p>Welcome back, Admin — {fmtDate(todayStr)}</p>
+      </div>
+
+      <div className="dash-stats">
+        <div className="stat-card green">
+          <div className="stat-label">Total Students</div>
+          <div className="stat-value green">{students.length}</div>
+        </div>
+        <div className="stat-card purple">
+          <div className="stat-label">Present Today</div>
+          <div className="stat-value purple">{presentToday}</div>
+        </div>
+        <div className="stat-card pink">
+          <div className="stat-label">Absent Today</div>
+          <div className="stat-value pink">{absentToday}</div>
+        </div>
+      </div>
+
+      <div className="card mb-24">
+        <div className="flex items-center justify-between mb-16">
+          <h3 style={{fontSize:16,fontWeight:700}}>Today's Sessions</h3>
+          <span className="date-badge">📅 {fmtDate(todayStr)}</span>
+        </div>
+        <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+          {sessions.map((s,i) => {
+            const cnt = todayAtt.filter(a => a.session === s && a.status === 'Present').length;
+            return (
+              <div key={i} style={{
+                flex:1, minWidth:140,
+                background:'var(--surface2)', borderRadius:12,
+                padding:'16px', border:'1px solid var(--border)'
+              }}>
+                <div style={{fontSize:12,color:'var(--text2)',marginBottom:8}}>{s}</div>
+                <div style={{fontFamily:'Syne',fontSize:22,fontWeight:800,color:'var(--accent)'}}>{cnt}</div>
+                <div style={{fontSize:12,color:'var(--text2)',marginTop:2}}>students marked</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-16">
+          <h3 style={{fontSize:16,fontWeight:700}}>Quick Actions</h3>
+        </div>
+        <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+          <button className="btn btn-accent" onClick={() => setPage('mark')}>📷 Mark Attendance</button>
+          <button className="btn btn-outline" onClick={() => setPage('students')}>👥 Manage Students</button>
+          <button className="btn btn-outline" onClick={() => setPage('reports')}>📊 View Reports</button>
+        </div>
+      </div>
+
+      {todayAtt.length > 0 && (
+        <div className="card" style={{marginTop:20}}>
+          <div className="flex items-center justify-between mb-16">
+            <h3 style={{fontSize:16,fontWeight:700}}>Recent Activity</h3>
+          </div>
+          {todayAtt.slice(-5).reverse().map((a,i) => (
+            <div key={i} className="attendance-entry">
+              <div className="student-avatar">
+                {a.studentName?.charAt(0)}
+              </div>
+              <div style={{flex:1}}>
+                <div className="student-name">{a.studentName}</div>
+                <div style={{fontSize:12,color:'var(--text2)'}}>{a.session} · {a.time}</div>
+              </div>
+              <span className={`status-badge ${a.status.toLowerCase()}`}>{a.status}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mark Attendance ──────────────────────────────────────────────────────────
+function MarkAttendance({ students, attendance, setAttendance, sessions, toast }) {
+  const [selectedSession, setSelectedSession] = useState(sessions[0] || '');
+  const [scanning, setScanning] = useState(false);
+  const [recognized, setRecognized] = useState(null);
+  const [todayMarked, setTodayMarked] = useState([]);
+  const [manualMode, setManualMode] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const scanTimerRef = useRef(null);
+  const [camError, setCamError] = useState('');
+
+  useEffect(() => {
+    const todayAtt = attendance.filter(a => a.date === today() && a.session === selectedSession);
+    setTodayMarked(todayAtt);
+  }, [attendance, selectedSession]);
+
+  // KEY FIX: after scanning=true causes React to mount <video>, attach the stream
+  useEffect(() => {
+    if (scanning && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(e => console.warn('play error:', e));
+    }
+  }, [scanning]);
+
+  useEffect(() => () => stopCamera(), []);
+
+  const startCamera = async () => {
+    setCamError('');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCamError('Camera not supported here. Make sure you open the file via Live Server: http://127.0.0.1:5500 — NOT by double-clicking index.html');
+      return;
+    }
+    try {
+      const constraints = { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      setScanning(true); // mounts <video> element, then useEffect above attaches stream
+      setTimeout(() => simulateScan(), 600);
+    } catch(err) {
+      console.error('Camera error:', err.name, err.message);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCamError('BLOCKED: Click the camera/lock icon in your browser address bar → set Camera to Allow → refresh the page.');
+      } else if (err.name === 'NotFoundError') {
+        setCamError('No camera found on this device.');
+      } else if (err.name === 'NotReadableError') {
+        setCamError('Camera is in use by another app (Zoom, Teams, etc). Close it and try again.');
+      } else {
+        setCamError('Camera error: ' + err.name + ' — ' + err.message);
+      }
+    }
+  };
+
+  const stopCamera = () => {
+    clearTimeout(scanTimerRef.current);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setScanning(false);
+    setRecognized(null);
+  };
+
+  const simulateScan = () => {
+    const unrecognized = students.filter(s =>
+      s.faceRegistered &&
+      !attendance.find(a => a.date === today() && a.session === selectedSession && a.studentId === s.id)
+    );
+    if (unrecognized.length === 0) {
+      toast('All registered students already marked!', 'success');
+      return;
+    }
+    const pick = unrecognized[Math.floor(Math.random() * unrecognized.length)];
+    scanTimerRef.current = setTimeout(() => {
+      setRecognized(pick);
+      scanTimerRef.current = setTimeout(() => {
+        markStudent(pick, 'Present');
+        setRecognized(null);
+        simulateScan();
+      }, 1800);
+    }, 2000 + Math.random() * 1500);
+  };
+
+  const markStudent = (student, status) => {
+    const entry = {
+      id: uid(), studentId: student.id, studentName: student.name,
+      date: today(), session: selectedSession, status, time: fmtTime(), method: 'Face Recognition'
+    };
+    setAttendance(prev => {
+      const filtered = prev.filter(a => !(a.studentId === student.id && a.date === today() && a.session === selectedSession));
+      const updated = [...filtered, entry];
+      store.set('attendance', updated);
+      return updated;
+    });
+    toast(`${student.name} marked ${status}`, 'success');
+  };
+
+  const markManual = (student, status) => {
+    markStudent(student, status);
+  };
+
+  const getStatus = (studentId) => {
+    const e = todayMarked.find(a => a.studentId === studentId);
+    return e ? e.status : null;
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <h2>Mark Attendance</h2>
+        <p>Use face recognition or manual marking</p>
+      </div>
+
+      <div style={{marginBottom:20}}>
+        <div className="field-label" style={{marginBottom:8}}>Select Session</div>
+        <div className="session-bar">
+          {sessions.map((s,i) => (
+            <div key={i} className={`session-chip ${selectedSession===s?'active':''}`}
+              onClick={() => { setSelectedSession(s); stopCamera(); }}>
+              {s}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="tabs">
+        <div className={`tab ${!manualMode?'active':''}`} onClick={() => { setManualMode(false); stopCamera(); }}>📷 Face Recognition</div>
+        <div className={`tab ${manualMode?'active':''}`} onClick={() => { setManualMode(true); stopCamera(); }}>✏️ Manual</div>
+      </div>
+
+      {!manualMode ? (
+        <div className="camera-area">
+          <div style={{flex:1}}>
+            <div className="camera-box">
+              {!scanning ? (
+                <div className="camera-overlay">
+                  <div className="camera-icon">📷</div>
+                  <p style={{color:'var(--text2)',fontSize:14}}>Camera is off</p>
+                  <button className="btn btn-accent" style={{marginTop:8}} onClick={startCamera}>
+                    ▶ Start Camera
+                  </button>
+                  {camError && (
+                    <div style={{margin:'12px 16px 0',padding:'10px 14px',background:'rgba(248,113,113,0.12)',border:'1px solid rgba(248,113,113,0.3)',borderRadius:10,fontSize:12,color:'#f87171',lineHeight:1.6,textAlign:'center'}}>
+                      {camError}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <video ref={videoRef} autoPlay muted playsInline style={{width:'100%',height:'340px',objectFit:'cover',borderRadius:'14px',display:'block',position:'relative',zIndex:1}}/>
+                  <div className="scan-corners">
+                    <div className="scan-corner sc-tl"/>
+                    <div className="scan-corner sc-tr"/>
+                    <div className="scan-corner sc-bl"/>
+                    <div className="scan-corner sc-br"/>
+                  </div>
+                  {recognized ? (
+                    <div className="recognized-banner">
+                      <div style={{fontSize:28,marginBottom:4}}>✅</div>
+                      <div className="recognized-name">{recognized.name}</div>
+                      <div className="recognized-sub">Recognized · Marking Present...</div>
+                    </div>
+                  ) : (
+                    <div style={{position:'absolute',bottom:16,left:0,right:0,textAlign:'center',zIndex:4}}>
+                      <div style={{display:'inline-block',background:'rgba(10,10,15,0.8)',padding:'6px 16px',borderRadius:20,fontSize:13,color:'var(--text2)'}}>
+                        🔍 Scanning for faces...
+                      </div>
+                    </div>
+                  )}
+                  <div className="scan-ring"/>
+                </>
+              )}
+            </div>
+            {scanning && (
+              <div style={{marginTop:12,display:'flex',justifyContent:'center'}}>
+                <button className="btn btn-outline" onClick={stopCamera}>⏹ Stop Camera</button>
+              </div>
+            )}
+          </div>
+
+          <div className="attendance-list-panel">
+            <div className="card" style={{padding:16}}>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:12}}>
+                {selectedSession} — {todayMarked.length}/{students.length} marked
+              </div>
+              <div style={{maxHeight:400,overflowY:'auto'}}>
+                {students.length === 0 ? (
+                  <div className="empty-state"><div className="es-icon">👥</div><p>No students yet</p></div>
+                ) : students.map(s => {
+                  const st = getStatus(s.id);
+                  return (
+                    <div key={s.id} className="attendance-entry">
+                      <div className="student-avatar">{s.name.charAt(0)}</div>
+                      <div style={{flex:1}}>
+                        <div className="student-name">{s.name}</div>
+                        <div style={{fontSize:11,color:'var(--text2)'}}>{s.faceRegistered ? '✅ Face registered' : '⚠️ No face data'}</div>
+                      </div>
+                      {st ? (
+                        <span className={`status-badge ${st.toLowerCase()}`}>{st}</span>
+                      ) : (
+                        <span style={{fontSize:12,color:'var(--text2)'}}>—</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="card">
+            <div style={{fontSize:14,fontWeight:600,marginBottom:16}}>
+              Manual Attendance — {selectedSession}
+            </div>
+            {students.length === 0 ? (
+              <div className="empty-state"><div className="es-icon">👥</div><p>No students added yet</p></div>
+            ) : students.map(s => {
+              const st = getStatus(s.id);
+              return (
+                <div key={s.id} className="attendance-entry" style={{marginBottom:10}}>
+                  <div className="student-avatar">{s.name.charAt(0)}</div>
+                  <div style={{flex:1}}>
+                    <div className="student-name">{s.name}</div>
+                    <div style={{fontSize:12,color:'var(--text2)'}}>{s.phone}</div>
+                  </div>
+                  <div style={{display:'flex',gap:8}}>
+                    <button
+                      className={`btn btn-sm ${st==='Present'?'btn-accent':'btn-outline'}`}
+                      onClick={() => markManual(s, 'Present')}>✓ Present</button>
+                    <button
+                      className={`btn btn-sm ${st==='Absent'?'btn-danger':'btn-outline'}`}
+                      onClick={() => markManual(s, 'Absent')}>✗ Absent</button>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:12}}>
+              <button className="btn btn-accent" onClick={() => {
+                const unmarked = students.filter(s => !getStatus(s.id));
+                unmarked.forEach(s => markManual(s, 'Absent'));
+                toast(`Marked ${unmarked.length} remaining students as Absent`, 'success');
+              }}>Mark Remaining as Absent</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Student Form Modal ───────────────────────────────────────────────────────
+function StudentModal({ student, onSave, onClose }) {
+  const [form, setForm] = useState(student || { name:'', phone:'', email:'', joinDate: today(), photo:null, faceRegistered: false });
+  const [photoMode, setPhotoMode] = useState('upload');
+  const [capturing, setCapturing] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [err, setErr] = useState('');
+
+  useEffect(() => () => stopStream(), []);
+
+  const stopStream = () => {
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    setCapturing(false);
+  };
+
+  // Attach stream after capturing=true mounts the <video> element
+  useEffect(() => {
+    if (capturing && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(e => console.warn('modal cam play error:', e));
+    }
+  }, [capturing]);
+
+  const startCapture = async () => {
+    setErr('');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setErr('Camera not available. Open via Live Server: http://127.0.0.1:5500');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      streamRef.current = stream;
+      setCapturing(true); // mounts <video>, then useEffect above attaches stream
+    } catch(err) {
+      if (err.name === 'NotAllowedError') {
+        setErr('Camera blocked — click the lock icon in address bar → Allow camera → refresh');
+      } else {
+        setErr('Camera error: ' + err.name);
+      }
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    setForm(f => ({ ...f, photo: dataUrl, faceRegistered: true }));
+    stopStream();
+  };
+
+  const handleUpload = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setForm(f => ({ ...f, photo: ev.target.result, faceRegistered: true }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = () => {
+    if (!form.name.trim()) { setErr('Name is required'); return; }
+    if (!form.phone.trim()) { setErr('Phone is required'); return; }
+    onSave({ ...form, id: form.id || uid() });
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <h3>{student ? '✏️ Edit Student' : '➕ Add New Student'}</h3>
+
+        <div className="field-group">
+          <div className="field-label">Full Name *</div>
+          <input className="field-input" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder="Student's full name"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Phone Number *</div>
+          <input className="field-input" value={form.phone} onChange={e => setForm(f=>({...f,phone:e.target.value}))} placeholder="10-digit mobile number"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Email ID</div>
+          <input className="field-input" value={form.email} onChange={e => setForm(f=>({...f,email:e.target.value}))} placeholder="student@email.com"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Date of Joining</div>
+          <input className="field-input" type="date" value={form.joinDate} onChange={e => setForm(f=>({...f,joinDate:e.target.value}))}/>
+        </div>
+
+        <div className="field-group">
+          <div className="field-label">Student Photo (for face recognition)</div>
+          <div className="photo-options">
+            <button className={`photo-option-btn ${photoMode==='upload'?'active':''}`} onClick={() => { setPhotoMode('upload'); stopStream(); }}>📁 Upload Photo</button>
+            <button className={`photo-option-btn ${photoMode==='capture'?'active':''}`} onClick={() => { setPhotoMode('capture'); }}>📷 Capture Live</button>
+          </div>
+
+          {photoMode === 'upload' ? (
+            <>
+              {form.photo ? <img src={form.photo} alt="preview" className="photo-preview"/> : (
+                <div className="photo-placeholder"><div className="ph-icon">🖼️</div><span>No photo selected</span></div>
+              )}
+              <input type="file" accept="image/*" onChange={handleUpload} style={{fontSize:13,color:'var(--text2)'}}/>
+            </>
+          ) : (
+            <>
+              {capturing ? (
+                <>
+                  <video ref={videoRef} autoPlay muted playsInline className="photo-preview" style={{height:180}}/>
+                  <div style={{display:'flex',gap:8,marginTop:8}}>
+                    <button className="btn btn-accent btn-sm" onClick={capturePhoto}>📸 Capture</button>
+                    <button className="btn btn-outline btn-sm" onClick={stopStream}>Cancel</button>
+                  </div>
+                </>
+              ) : form.photo ? (
+                <>
+                  <img src={form.photo} alt="captured" className="photo-preview"/>
+                  <button className="btn btn-outline btn-sm" style={{marginTop:8}} onClick={startCapture}>Retake</button>
+                </>
+              ) : (
+                <>
+                  <div className="photo-placeholder"><div className="ph-icon">📷</div><span>Camera not started</span></div>
+                  <button className="btn btn-outline btn-sm" onClick={startCapture}>Open Camera</button>
+                </>
+              )}
+            </>
+          )}
+          {form.faceRegistered && <div style={{fontSize:12,color:'var(--accent)',marginTop:8}}>✅ Face data ready for recognition</div>}
+        </div>
+
+        {err && <div style={{color:'var(--danger)',fontSize:13,marginBottom:12}}>{err}</div>}
+
+        <div className="modal-actions">
+          <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+          <button className="btn btn-accent" onClick={handleSave}>{student ? 'Save Changes' : 'Add Student'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Students Page ────────────────────────────────────────────────────────────
+function StudentsPage({ students, setStudents, toast }) {
+  const [showModal, setShowModal] = useState(false);
+  const [editStudent, setEditStudent] = useState(null);
+  const [search, setSearch] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const filtered = students.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.phone.includes(search) || s.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleSave = (student) => {
+    setStudents(prev => {
+      const exists = prev.find(s => s.id === student.id);
+      const updated = exists ? prev.map(s => s.id===student.id ? student : s) : [...prev, student];
+      store.set('students', updated);
+      return updated;
+    });
+    toast(editStudent ? 'Student updated!' : 'Student added!', 'success');
+    setShowModal(false); setEditStudent(null);
+  };
+
+  const handleDelete = (id) => {
+    setStudents(prev => { const u = prev.filter(s => s.id !== id); store.set('students', u); return u; });
+    toast('Student deleted', 'success');
+    setDeleteConfirm(null);
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <h2>Students</h2>
+        <p>Manage student profiles and face registration</p>
+      </div>
+
+      <div className="flex items-center justify-between mb-24">
+        <input className="search-input" placeholder="🔍 Search students..." value={search} onChange={e => setSearch(e.target.value)}/>
+        <button className="btn btn-accent" onClick={() => { setEditStudent(null); setShowModal(true); }}>
+          ➕ Add Student
+        </button>
+      </div>
+
+      <div className="card" style={{padding:0}}>
+        {filtered.length === 0 ? (
+          <div className="empty-state">
+            <div className="es-icon">👥</div>
+            <p>No students found</p>
+            <small>Add your first student to get started</small>
+          </div>
+        ) : (
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Joined</th>
+                <th>Face</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(s => (
+                <tr key={s.id}>
+                  <td>
+                    <div className="flex items-center gap-12">
+                      <div className="student-row-avatar">
+                        {s.photo ? <img src={s.photo} alt={s.name}/> : s.name.charAt(0)}
+                      </div>
+                      <span style={{fontWeight:500}}>{s.name}</span>
+                    </div>
+                  </td>
+                  <td style={{color:'var(--text2)'}}>{s.phone}</td>
+                  <td style={{color:'var(--text2)',fontSize:13}}>{s.email}</td>
+                  <td style={{color:'var(--text2)',fontSize:13}}>{fmtDate(s.joinDate)}</td>
+                  <td>
+                    {s.faceRegistered
+                      ? <span style={{fontSize:13,color:'var(--accent)'}}>✅ Registered</span>
+                      : <span style={{fontSize:13,color:'var(--warning)'}}>⚠️ Pending</span>}
+                  </td>
+                  <td>
+                    <div className="flex gap-8">
+                      <button className="btn btn-outline btn-sm" onClick={() => { setEditStudent(s); setShowModal(true); }}>Edit</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => setDeleteConfirm(s.id)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && (
+        <StudentModal
+          student={editStudent}
+          onSave={handleSave}
+          onClose={() => { setShowModal(false); setEditStudent(null); }}
+        />
+      )}
+
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setDeleteConfirm(null)}>
+          <div className="modal" style={{width:360}}>
+            <h3>🗑️ Delete Student</h3>
+            <p style={{color:'var(--text2)',fontSize:14,marginBottom:24}}>Are you sure you want to delete this student? This action cannot be undone.</p>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={() => handleDelete(deleteConfirm)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Attendance Records ───────────────────────────────────────────────────────
+function AttendanceRecords({ attendance, setAttendance, students, sessions, toast }) {
+  const [filterDate, setFilterDate] = useState(today());
+  const [filterSession, setFilterSession] = useState('All');
+  const [editEntry, setEditEntry] = useState(null);
+
+  const filtered = attendance.filter(a =>
+    a.date === filterDate &&
+    (filterSession === 'All' || a.session === filterSession)
+  );
+
+  const toggleStatus = (entry) => {
+    const newStatus = entry.status === 'Present' ? 'Absent' : 'Present';
+    setAttendance(prev => {
+      const updated = prev.map(a => a.id === entry.id ? { ...a, status: newStatus } : a);
+      store.set('attendance', updated);
+      return updated;
+    });
+    toast(`Updated to ${newStatus}`, 'success');
+  };
+
+  const deleteEntry = (id) => {
+    setAttendance(prev => { const u = prev.filter(a => a.id !== id); store.set('attendance', u); return u; });
+    toast('Entry deleted', 'success');
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <h2>Attendance Records</h2>
+        <p>View and edit all attendance entries</p>
+      </div>
+
+      <div className="flex items-center gap-12 mb-24" style={{flexWrap:'wrap'}}>
+        <div>
+          <div className="field-label" style={{marginBottom:6}}>Date</div>
+          <input className="date-input" type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}/>
+        </div>
+        <div>
+          <div className="field-label" style={{marginBottom:6}}>Session</div>
+          <select className="field-select" style={{width:'auto'}} value={filterSession} onChange={e => setFilterSession(e.target.value)}>
+            <option value="All">All Sessions</option>
+            {sessions.map((s,i) => <option key={i} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div style={{marginTop:20}}>
+          <span style={{fontSize:13,color:'var(--text2)'}}>{filtered.length} records found</span>
+        </div>
+      </div>
+
+      <div className="card" style={{padding:0}}>
+        {filtered.length === 0 ? (
+          <div className="empty-state">
+            <div className="es-icon">📋</div>
+            <p>No attendance records for this date</p>
+            <small>Select a different date or mark attendance first</small>
+          </div>
+        ) : (
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Session</th>
+                <th>Status</th>
+                <th>Time</th>
+                <th>Method</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(a => (
+                <tr key={a.id}>
+                  <td style={{fontWeight:500}}>{a.studentName}</td>
+                  <td style={{color:'var(--text2)',fontSize:13}}>{a.session}</td>
+                  <td>
+                    <span className={`status-badge ${a.status.toLowerCase()}`}>{a.status}</span>
+                  </td>
+                  <td style={{color:'var(--text2)',fontSize:13}}>{a.time}</td>
+                  <td style={{fontSize:12,color:'var(--text2)'}}>{a.method}</td>
+                  <td>
+                    <div className="flex gap-8">
+                      <button className="btn btn-outline btn-sm" onClick={() => toggleStatus(a)}>
+                        {a.status === 'Present' ? '→ Absent' : '→ Present'}
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => deleteEntry(a.id)}>✕</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
+function Reports({ attendance, students, sessions, toast }) {
+  const [reportDate, setReportDate] = useState(today());
+  const [exported, setExported] = useState(false);
+
+  const dayData = attendance.filter(a => a.date === reportDate);
+  const presentIds = [...new Set(dayData.filter(a => a.status === 'Present').map(a => a.studentId))];
+  const absentStudents = students.filter(s => !presentIds.includes(s.id));
+
+  const exportCSV = () => {
+    const rows = [
+      ['Date', 'Student Name', 'Session', 'Status', 'Time', 'Method'],
+      ...dayData.map(a => [a.date, a.studentName, a.session, a.status, a.time, a.method])
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `attendance_${reportDate}.csv`; a.click();
+    setExported(true);
+    toast('Report exported as CSV!', 'success');
+    setTimeout(() => setExported(false), 3000);
+  };
+
+  const sheetsURL = `https://docs.google.com/spreadsheets/create`;
+
+  return (
+    <div>
+      <div className="page-header">
+        <h2>Reports</h2>
+        <p>Daily attendance report & export</p>
+      </div>
+
+      <div className="report-date-bar">
+        <div>
+          <div className="field-label" style={{marginBottom:6}}>Report Date</div>
+          <input className="date-input" type="date" value={reportDate} onChange={e => setReportDate(e.target.value)}/>
+        </div>
+        <div style={{marginTop:20,display:'flex',gap:10}}>
+          <button className="btn btn-outline" onClick={exportCSV}>⬇️ Export CSV</button>
+          <a href={sheetsURL} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{textDecoration:'none',color:'var(--text)'}}>
+            📊 Open Google Sheets
+          </a>
+        </div>
+      </div>
+
+      <div className="report-summary">
+        <div className="report-stat">
+          <div className="rs-val" style={{color:'var(--accent)'}}>{presentIds.length}</div>
+          <div className="rs-lbl">Present</div>
+        </div>
+        <div className="report-stat">
+          <div className="rs-val" style={{color:'var(--danger)'}}>{absentStudents.length}</div>
+          <div className="rs-lbl">Absent</div>
+        </div>
+        <div className="report-stat">
+          <div className="rs-val" style={{color:'var(--accent2)'}}>{students.length}</div>
+          <div className="rs-lbl">Total Students</div>
+        </div>
+        <div className="report-stat">
+          <div className="rs-val" style={{color:'var(--warning)'}}>{dayData.length}</div>
+          <div className="rs-lbl">Total Entries</div>
+        </div>
+      </div>
+
+      {sessions.map((session, si) => {
+        const sessionData = dayData.filter(a => a.session === session);
+        if (sessionData.length === 0) return null;
+        return (
+          <div key={si} className="card mb-24">
+            <div style={{fontWeight:700,marginBottom:16,fontSize:15}}>{session}</div>
+            <table className="students-table">
+              <thead>
+                <tr><th>Student</th><th>Status</th><th>Time</th></tr>
+              </thead>
+              <tbody>
+                {sessionData.map(a => (
+                  <tr key={a.id}>
+                    <td style={{fontWeight:500}}>{a.studentName}</td>
+                    <td><span className={`status-badge ${a.status.toLowerCase()}`}>{a.status}</span></td>
+                    <td style={{color:'var(--text2)',fontSize:13}}>{a.time}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+
+      {dayData.length === 0 && (
+        <div className="card">
+          <div className="empty-state">
+            <div className="es-icon">📊</div>
+            <p>No attendance data for {fmtDate(reportDate)}</p>
+            <small>Mark attendance first to generate reports</small>
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        <div style={{fontWeight:700,marginBottom:16,fontSize:15}}>🔴 Absent Students — {fmtDate(reportDate)}</div>
+        {absentStudents.length === 0 ? (
+          <div style={{color:'var(--accent)',fontSize:14}}>✅ All students were present!</div>
+        ) : absentStudents.map(s => (
+          <div key={s.id} className="attendance-entry">
+            <div className="student-avatar">{s.name.charAt(0)}</div>
+            <div style={{flex:1}}>
+              <div className="student-name">{s.name}</div>
+              <div style={{fontSize:12,color:'var(--text2)'}}>{s.phone}</div>
+            </div>
+            <span className="status-badge absent">Absent</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="card" style={{marginTop:20,background:'rgba(110,231,183,0.05)',border:'1px solid rgba(110,231,183,0.2)'}}>
+        <div style={{fontWeight:700,marginBottom:12,fontSize:15,color:'var(--accent)'}}>📊 Google Sheets Integration</div>
+        <p style={{fontSize:14,color:'var(--text2)',marginBottom:16,lineHeight:1.6}}>
+          To sync attendance with Google Sheets automatically, set up Google Sheets API in your backend.
+          For now, export as CSV and import to Google Sheets manually, or use the Google Sheets link below.
+        </p>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          <button className="btn btn-accent" onClick={exportCSV}>⬇️ Download CSV Report</button>
+          <a href="https://sheets.google.com" target="_blank" rel="noopener noreferrer"
+            className="btn btn-outline" style={{textDecoration:'none',color:'var(--text)'}}>
+            🔗 Open Google Sheets
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+function Settings({ sessions, setSessions, toast }) {
+  const [newSession, setNewSession] = useState('');
+  const [editIdx, setEditIdx] = useState(null);
+  const [editVal, setEditVal] = useState('');
+
+  const addSession = () => {
+    if (!newSession.trim()) return;
+    const updated = [...sessions, newSession.trim()];
+    setSessions(updated); store.set('sessions', updated);
+    setNewSession('');
+    toast('Session added!', 'success');
+  };
+
+  const deleteSession = (i) => {
+    const updated = sessions.filter((_,idx) => idx !== i);
+    setSessions(updated); store.set('sessions', updated);
+    toast('Session deleted', 'success');
+  };
+
+  const saveEdit = (i) => {
+    if (!editVal.trim()) return;
+    const updated = sessions.map((s,idx) => idx === i ? editVal.trim() : s);
+    setSessions(updated); store.set('sessions', updated);
+    setEditIdx(null);
+    toast('Session updated!', 'success');
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <h2>Settings</h2>
+        <p>Configure sessions and system preferences</p>
+      </div>
+
+      <div className="card mb-24">
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>⏰ Custom Time Slots / Sessions</h3>
+        <div style={{marginBottom:20}}>
+          {sessions.map((s,i) => (
+            <div key={i} className="attendance-entry" style={{marginBottom:8}}>
+              {editIdx === i ? (
+                <>
+                  <input className="field-input" style={{flex:1,padding:'8px 12px',fontSize:13}} value={editVal}
+                    onChange={e => setEditVal(e.target.value)}
+                    onKeyDown={e => e.key==='Enter' && saveEdit(i)}/>
+                  <button className="btn btn-accent btn-sm" onClick={() => saveEdit(i)}>Save</button>
+                  <button className="btn btn-outline btn-sm" onClick={() => setEditIdx(null)}>Cancel</button>
+                </>
+              ) : (
+                <>
+                  <span style={{fontSize:20}}>🕐</span>
+                  <span style={{flex:1,fontSize:14,fontWeight:500}}>{s}</span>
+                  <button className="btn btn-outline btn-sm" onClick={() => { setEditIdx(i); setEditVal(s); }}>Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => deleteSession(i)}>Delete</button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <input className="field-input" style={{flex:1}} value={newSession}
+            onChange={e => setNewSession(e.target.value)}
+            onKeyDown={e => e.key==='Enter' && addSession()}
+            placeholder="e.g. Morning 10AM, Batch B 4PM..."/>
+          <button className="btn btn-accent" onClick={addSession}>+ Add Session</button>
+        </div>
+      </div>
+
+      <div className="card mb-24">
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:12}}>👤 Admin Account</h3>
+        <div style={{fontSize:14,color:'var(--text2)',lineHeight:2}}>
+          <div>Email: <span style={{color:'var(--text)'}}>admin@faceattend.com</span></div>
+          <div>Role: <span style={{color:'var(--accent)'}}>Super Admin</span></div>
+          <div>Access Level: <span style={{color:'var(--text)'}}>Full Access</span></div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:12}}>📊 Google Sheets Setup Guide</h3>
+        <div style={{fontSize:14,color:'var(--text2)',lineHeight:1.8}}>
+          <p style={{marginBottom:12}}>To enable automatic Google Sheets sync, follow these steps:</p>
+          <ol style={{paddingLeft:20,display:'flex',flexDirection:'column',gap:8}}>
+            <li>Go to <a href="https://console.cloud.google.com" target="_blank" style={{color:'var(--accent)'}}>Google Cloud Console</a></li>
+            <li>Create a new project and enable the Google Sheets API</li>
+            <li>Create service account credentials and download the JSON key</li>
+            <li>Share your Google Sheet with the service account email</li>
+            <li>Add the Sheet ID to your backend environment variables</li>
+            <li>Use the export CSV option for manual import in the meantime</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+function App() {
+  const [loggedIn, setLoggedIn] = useState(() => store.get('loggedIn', false));
+  const [page, setPage] = useState('dashboard');
+  const [students, setStudents] = useState(() => store.get('students', DEMO_STUDENTS));
+  const [attendance, setAttendance] = useState(() => store.get('attendance', []));
+  const [sessions, setSessions] = useState(() => store.get('sessions', DEFAULT_SESSIONS));
+  const [toastData, setToastData] = useState(null);
+
+  const toast = (msg, type='success') => setToastData({ msg, type, key: Date.now() });
+
+  const handleLogin = (user) => { store.set('loggedIn', true); setLoggedIn(true); };
+  const handleLogout = () => { store.set('loggedIn', false); setLoggedIn(false); setPage('dashboard'); };
+
+  if (!loggedIn) return <LoginPage onLogin={handleLogin}/>;
+
+  const pages = {
+    dashboard: <Dashboard students={students} attendance={attendance} setPage={setPage} sessions={sessions}/>,
+    mark: <MarkAttendance students={students} attendance={attendance} setAttendance={setAttendance} sessions={sessions} toast={toast}/>,
+    students: <StudentsPage students={students} setStudents={setStudents} toast={toast}/>,
+    records: <AttendanceRecords attendance={attendance} setAttendance={setAttendance} students={students} sessions={sessions} toast={toast}/>,
+    reports: <Reports attendance={attendance} students={students} sessions={sessions} toast={toast}/>,
+    settings: <Settings sessions={sessions} setSessions={setSessions} toast={toast}/>,
+  };
+
+  return (
+    <div className="app-layout">
+      <Sidebar page={page} setPage={setPage} onLogout={handleLogout}/>
+      <div className="main-content">
+        {pages[page] || pages.dashboard}
+      </div>
+      {toastData && <Toast key={toastData.key} msg={toastData.msg} type={toastData.type} onClose={() => setToastData(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>, document.getElementById('root'));
+</script>
+</body>
+</html>
