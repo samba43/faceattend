@@ -514,13 +514,81 @@
 
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-  /* Responsive */
+  /* ── MOBILE BOTTOM NAV ── */
+  .mobile-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 200;
+    padding: 6px 0 env(safe-area-inset-bottom, 6px);
+  }
+  .mobile-nav-inner {
+    display: flex; justify-content: space-around; align-items: center;
+  }
+  .mobile-nav-item {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px; padding: 6px 10px; cursor: pointer;
+    color: var(--text2); font-size: 11px; font-weight: 500;
+    border-radius: 10px; transition: all 0.15s; min-width: 52px;
+  }
+  .mobile-nav-item .mn-icon { font-size: 20px; }
+  .mobile-nav-item.active { color: var(--accent); }
+  .mobile-nav-item.active .mn-icon { transform: scale(1.1); }
+
+  /* ── MOBILE HEADER ── */
+  .mobile-header {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 150;
+    padding: 12px 16px;
+    align-items: center; justify-content: space-between;
+  }
+  .mobile-header h2 { font-size: 16px; font-weight: 800; }
+  .mobile-header span { color: var(--accent); }
+
+  /* ── RESPONSIVE ── */
   @media (max-width: 768px) {
-    .sidebar { transform: translateX(-100%); }
-    .main-content { margin-left: 0; padding: 20px; }
-    .dash-stats { grid-template-columns: 1fr; }
+    .sidebar { display: none !important; }
+    .mobile-nav { display: block; }
+    .mobile-header { display: flex; }
+    .main-content {
+      margin-left: 0 !important;
+      padding: 16px 14px 90px !important;
+      padding-top: 70px !important;
+    }
+    .dash-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-value { font-size: 24px; }
     .camera-area { flex-direction: column; }
     .attendance-list-panel { width: 100%; }
+    .modal { width: calc(100vw - 32px) !important; padding: 24px 18px; margin: 0 16px; max-height: 90vh; }
+    .students-table { font-size: 13px; }
+    .students-table th, .students-table td { padding: 10px 10px; }
+    .page-header h2 { font-size: 20px; }
+    .card { padding: 16px; border-radius: 12px; }
+    .btn { padding: 9px 14px; font-size: 13px; }
+    .session-bar { gap: 8px; }
+    .session-chip { padding: 7px 14px; font-size: 12px; }
+    .search-input { width: 100%; }
+    .flex.items-center.justify-between { flex-wrap: wrap; gap: 10px; }
+    .report-summary { flex-wrap: wrap; }
+    .report-summary .report-stat { min-width: calc(50% - 8px); }
+    .report-date-bar { flex-wrap: wrap; }
+    .tabs { width: 100%; }
+    .tab { flex: 1; text-align: center; font-size: 12px; padding: 8px 10px; }
+    .photo-options { flex-direction: column; }
+    .camera-box { min-height: 260px; }
+    .camera-box video { height: 260px !important; }
+    /* Hide email col on small screens */
+    .students-table .hide-mobile { display: none; }
+    .login-card { width: calc(100vw - 32px); padding: 28px 20px; }
+    .dash-stats .stat-card:last-child { grid-column: span 2; }
+  }
+  @media (max-width: 380px) {
+    .dash-stats { grid-template-columns: 1fr; }
+    .dash-stats .stat-card:last-child { grid-column: span 1; }
   }
 </style>
 </head>
@@ -556,82 +624,69 @@ const store = {
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx6uzEAnSArweRssJ6ylj80yyGjiAOEMnWcMo6LPlXkhkmFK0jglx9TIqCEF96au7-l1w/exec';
 
 const sheetsAPI = {
-  // Fetch all students from Google Sheet
-  getStudents: async () => {
+  // GET: fetch students - uses jsonp-style via script tag to bypass CORS
+  getStudents: () => new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
+      delete window[cbName];
+      document.body.removeChild(script);
+      reject(new Error('Timeout'));
+    }, 10000);
+    window[cbName] = (data) => {
+      clearTimeout(timeout);
+      delete window[cbName];
+      try { document.body.removeChild(script); } catch(e){}
+      if (data.success) {
+        const students = (data.data || []).map(row => ({
+          id: uid(),
+          name: String(row['Name'] || '').trim(),
+          phone: String(row['Phone'] || '').trim(),
+          email: String(row['Email'] || '').trim(),
+          joinDate: String(row['JoinDate'] || today()),
+          faceRegistered: String(row['FaceRegistered'] || '').toLowerCase() === 'true',
+          photo: null,
+        })).filter(s => s.name);
+        resolve(students);
+      } else {
+        reject(new Error(data.error || 'Unknown error'));
+      }
+    };
+    script.src = SHEETS_URL + '?sheet=Students&callback=' + cbName;
+    script.onerror = () => { clearTimeout(timeout); reject(new Error('Script load failed')); };
+    document.body.appendChild(script);
+  }),
+
+  // POST via no-cors (fire and forget — can't read response but data gets saved)
+  _post: async (payload) => {
     try {
-      const res = await fetch(SHEETS_URL + '?sheet=Students');
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      return json.data.map(row => ({
-        id: uid(),
-        name: String(row['Name'] || '').trim(),
-        phone: String(row['Phone'] || '').trim(),
-        email: String(row['Email'] || '').trim(),
-        joinDate: String(row['JoinDate'] || '').trim(),
-        faceRegistered: String(row['FaceRegistered'] || '').toLowerCase() === 'true',
-        photo: null,
-      })).filter(s => s.name);
+      // Try with form-encoded to handle CORS preflight better
+      const form = new FormData();
+      form.append('data', JSON.stringify(payload));
+      await fetch(SHEETS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+      return true;
     } catch(e) {
-      console.error('getStudents error:', e);
       throw e;
     }
   },
 
-  // Push a single attendance row to Google Sheet
   addAttendance: async (entry) => {
-    try {
-      const res = await fetch(SHEETS_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'append',
-          sheet: 'Attendance',
-          row: [entry.date, entry.studentName, entry.session, entry.status, entry.time, entry.method]
-        })
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      return true;
-    } catch(e) {
-      console.error('addAttendance error:', e);
-      throw e;
-    }
+    return sheetsAPI._post({
+      action: 'append', sheet: 'Attendance',
+      row: [entry.date, entry.studentName, entry.session, entry.status, entry.time, entry.method || 'Manual']
+    });
   },
 
-  // Push a single student row to Google Sheet
   addStudent: async (student) => {
-    try {
-      const res = await fetch(SHEETS_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'append',
-          sheet: 'Students',
-          row: [student.name, student.phone, student.email, student.joinDate, student.faceRegistered ? 'true' : 'false']
-        })
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      return true;
-    } catch(e) {
-      console.error('addStudent error:', e);
-      throw e;
-    }
+    return sheetsAPI._post({
+      action: 'append', sheet: 'Students',
+      row: [student.name, student.phone, student.email, student.joinDate, student.faceRegistered ? 'true' : 'false']
+    });
   },
 
-  // Sync all students to Google Sheet (full overwrite)
   syncAllStudents: async (students) => {
-    try {
-      const rows = students.map(s => [s.name, s.phone, s.email, s.joinDate, s.faceRegistered ? 'true' : 'false']);
-      const res = await fetch(SHEETS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'sync_students', sheet: 'Students', rows })
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      return true;
-    } catch(e) {
-      console.error('syncAllStudents error:', e);
-      throw e;
-    }
+    const rows = students.map(s => [s.name, s.phone, s.email, s.joinDate, s.faceRegistered ? 'true' : 'false']);
+    return sheetsAPI._post({ action: 'sync_students', sheet: 'Students', rows });
   }
 };
 
@@ -1219,7 +1274,7 @@ function StudentModal({ student, onSave, onClose }) {
 }
 
 // ─── Students Page ────────────────────────────────────────────────────────────
-function StudentsPage({ students, setStudents, toast }) {
+function StudentsPage({ students, setStudents, toast, onSync, syncing }) {
   const [showModal, setShowModal] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
   const [search, setSearch] = useState('');
@@ -1268,9 +1323,9 @@ function StudentsPage({ students, setStudents, toast }) {
         <p>Manage student profiles and face registration</p>
       </div>
 
-      <div className="flex items-center justify-between mb-24">
-        <input className="search-input" placeholder="🔍 Search students..." value={search} onChange={e => setSearch(e.target.value)}/>
-        <div style={{display:'flex',gap:10}}>
+      <div style={{display:'flex',flexWrap:'wrap',gap:10,marginBottom:24,alignItems:'center',justifyContent:'space-between'}}>
+        <input className="search-input" style={{flex:'1',minWidth:180}} placeholder="🔍 Search students..." value={search} onChange={e => setSearch(e.target.value)}/>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <button className="btn btn-outline" onClick={onSync} disabled={syncing} style={{fontSize:13}}>
             {syncing ? '⟳ Syncing...' : '🔄 Sync from Sheets'}
           </button>
@@ -1293,8 +1348,8 @@ function StudentsPage({ students, setStudents, toast }) {
               <tr>
                 <th>Student</th>
                 <th>Phone</th>
-                <th>Email</th>
-                <th>Joined</th>
+                <th className="hide-mobile">Email</th>
+                <th className="hide-mobile">Joined</th>
                 <th>Face</th>
                 <th>Actions</th>
               </tr>
@@ -1311,8 +1366,8 @@ function StudentsPage({ students, setStudents, toast }) {
                     </div>
                   </td>
                   <td style={{color:'var(--text2)'}}>{s.phone}</td>
-                  <td style={{color:'var(--text2)',fontSize:13}}>{s.email}</td>
-                  <td style={{color:'var(--text2)',fontSize:13}}>{fmtDate(s.joinDate)}</td>
+                  <td className="hide-mobile" style={{color:'var(--text2)',fontSize:13}}>{s.email}</td>
+                  <td className="hide-mobile" style={{color:'var(--text2)',fontSize:13}}>{fmtDate(s.joinDate)}</td>
                   <td>
                     {s.faceRegistered
                       ? <span style={{fontSize:13,color:'var(--accent)'}}>✅ Registered</span>
@@ -1586,7 +1641,7 @@ function Reports({ attendance, students, sessions, toast }) {
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
-function Settings({ sessions, setSessions, toast }) {
+function Settings({ sessions, setSessions, toast, onSync, syncing }) {
   const [newSession, setNewSession] = useState('');
   const [editIdx, setEditIdx] = useState(null);
   const [editVal, setEditVal] = useState('');
@@ -1746,9 +1801,30 @@ function App() {
     settings: <Settings sessions={sessions} setSessions={setSessions} toast={toast} onSync={loadStudentsFromSheets} syncing={syncing}/>,
   };
 
+  const pageLabels = {
+    dashboard: 'Dashboard', mark: 'Mark Attendance', students: 'Students',
+    records: 'Records', reports: 'Reports', settings: 'Settings'
+  };
+
+  const mobileNav = [
+    { id:'dashboard', icon:'⚡', label:'Home' },
+    { id:'mark',      icon:'📷', label:'Attend' },
+    { id:'students',  icon:'👥', label:'Students' },
+    { id:'reports',   icon:'📊', label:'Reports' },
+    { id:'settings',  icon:'⚙️', label:'Settings' },
+  ];
+
   return (
     <div className="app-layout">
+      {/* Desktop sidebar */}
       <Sidebar page={page} setPage={setPage} onLogout={handleLogout}/>
+
+      {/* Mobile top header */}
+      <div className="mobile-header">
+        <h2>Face<span>Attend</span></h2>
+        <div style={{fontSize:13,color:'var(--text2)'}}>{pageLabels[page]}</div>
+      </div>
+
       <div className="main-content">
         {syncStatus && (
           <div style={{
@@ -1765,6 +1841,19 @@ function App() {
         )}
         {pages[page] || pages.dashboard}
       </div>
+
+      {/* Mobile bottom nav */}
+      <div className="mobile-nav">
+        <div className="mobile-nav-inner">
+          {mobileNav.map(n => (
+            <div key={n.id} className={`mobile-nav-item ${page===n.id?'active':''}`} onClick={() => setPage(n.id)}>
+              <span className="mn-icon">{n.icon}</span>
+              <span>{n.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {toastData && <Toast key={toastData.key} msg={toastData.msg} type={toastData.type} onClose={() => setToastData(null)}/>}
     </div>
   );
