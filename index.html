@@ -512,6 +512,8 @@
   .mb-16 { margin-bottom: 16px; }
   .mb-24 { margin-bottom: 24px; }
 
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
   /* Responsive */
   @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
@@ -548,6 +550,89 @@ const DEFAULT_SESSIONS = ['Morning 9AM', 'Afternoon 2PM', 'Evening 6PM'];
 const store = {
   get: (k, def) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } },
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// ─── Google Sheets API ───────────────────────────────────────────────────────
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx6uzEAnSArweRssJ6ylj80yyGjiAOEMnWcMo6LPlXkhkmFK0jglx9TIqCEF96au7-l1w/exec';
+
+const sheetsAPI = {
+  // Fetch all students from Google Sheet
+  getStudents: async () => {
+    try {
+      const res = await fetch(SHEETS_URL + '?sheet=Students');
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data.map(row => ({
+        id: uid(),
+        name: String(row['Name'] || '').trim(),
+        phone: String(row['Phone'] || '').trim(),
+        email: String(row['Email'] || '').trim(),
+        joinDate: String(row['JoinDate'] || '').trim(),
+        faceRegistered: String(row['FaceRegistered'] || '').toLowerCase() === 'true',
+        photo: null,
+      })).filter(s => s.name);
+    } catch(e) {
+      console.error('getStudents error:', e);
+      throw e;
+    }
+  },
+
+  // Push a single attendance row to Google Sheet
+  addAttendance: async (entry) => {
+    try {
+      const res = await fetch(SHEETS_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'append',
+          sheet: 'Attendance',
+          row: [entry.date, entry.studentName, entry.session, entry.status, entry.time, entry.method]
+        })
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return true;
+    } catch(e) {
+      console.error('addAttendance error:', e);
+      throw e;
+    }
+  },
+
+  // Push a single student row to Google Sheet
+  addStudent: async (student) => {
+    try {
+      const res = await fetch(SHEETS_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'append',
+          sheet: 'Students',
+          row: [student.name, student.phone, student.email, student.joinDate, student.faceRegistered ? 'true' : 'false']
+        })
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return true;
+    } catch(e) {
+      console.error('addStudent error:', e);
+      throw e;
+    }
+  },
+
+  // Sync all students to Google Sheet (full overwrite)
+  syncAllStudents: async (students) => {
+    try {
+      const rows = students.map(s => [s.name, s.phone, s.email, s.joinDate, s.faceRegistered ? 'true' : 'false']);
+      const res = await fetch(SHEETS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'sync_students', sheet: 'Students', rows })
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return true;
+    } catch(e) {
+      console.error('syncAllStudents error:', e);
+      throw e;
+    }
+  }
 };
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -818,7 +903,7 @@ function MarkAttendance({ students, attendance, setAttendance, sessions, toast }
     }, 2000 + Math.random() * 1500);
   };
 
-  const markStudent = (student, status) => {
+  const markStudent = async (student, status) => {
     const entry = {
       id: uid(), studentId: student.id, studentName: student.name,
       date: today(), session: selectedSession, status, time: fmtTime(), method: 'Face Recognition'
@@ -829,7 +914,13 @@ function MarkAttendance({ students, attendance, setAttendance, sessions, toast }
       store.set('attendance', updated);
       return updated;
     });
-    toast(`${student.name} marked ${status}`, 'success');
+    // Push to Google Sheets in background
+    try {
+      await sheetsAPI.addAttendance(entry);
+      toast(`${student.name} marked ${status} → Sheets updated ✅`, 'success');
+    } catch(e) {
+      toast(`${student.name} marked ${status} (saved locally)`, 'success');
+    }
   };
 
   const markManual = (student, status) => {
@@ -1139,14 +1230,28 @@ function StudentsPage({ students, setStudents, toast }) {
     s.phone.includes(search) || s.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSave = (student) => {
+  const handleSave = async (student) => {
+    const isNew = !students.find(s => s.id === student.id);
     setStudents(prev => {
       const exists = prev.find(s => s.id === student.id);
       const updated = exists ? prev.map(s => s.id===student.id ? student : s) : [...prev, student];
       store.set('students', updated);
       return updated;
     });
-    toast(editStudent ? 'Student updated!' : 'Student added!', 'success');
+    // Push to Google Sheets
+    try {
+      if (isNew) {
+        await sheetsAPI.addStudent(student);
+        toast('Student added & saved to Google Sheets! ✅', 'success');
+      } else {
+        // sync all on edit
+        const updated = students.map(s => s.id===student.id ? student : s);
+        await sheetsAPI.syncAllStudents(updated);
+        toast('Student updated & synced to Google Sheets! ✅', 'success');
+      }
+    } catch(e) {
+      toast((isNew ? 'Student added locally' : 'Student updated locally') + ' (Sheets sync failed)', 'success');
+    }
     setShowModal(false); setEditStudent(null);
   };
 
@@ -1165,9 +1270,14 @@ function StudentsPage({ students, setStudents, toast }) {
 
       <div className="flex items-center justify-between mb-24">
         <input className="search-input" placeholder="🔍 Search students..." value={search} onChange={e => setSearch(e.target.value)}/>
-        <button className="btn btn-accent" onClick={() => { setEditStudent(null); setShowModal(true); }}>
-          ➕ Add Student
-        </button>
+        <div style={{display:'flex',gap:10}}>
+          <button className="btn btn-outline" onClick={onSync} disabled={syncing} style={{fontSize:13}}>
+            {syncing ? '⟳ Syncing...' : '🔄 Sync from Sheets'}
+          </button>
+          <button className="btn btn-accent" onClick={() => { setEditStudent(null); setShowModal(true); }}>
+            ➕ Add Student
+          </button>
+        </div>
       </div>
 
       <div className="card" style={{padding:0}}>
@@ -1552,18 +1662,24 @@ function Settings({ sessions, setSessions, toast }) {
         </div>
       </div>
 
-      <div className="card">
-        <h3 style={{fontSize:16,fontWeight:700,marginBottom:12}}>📊 Google Sheets Setup Guide</h3>
-        <div style={{fontSize:14,color:'var(--text2)',lineHeight:1.8}}>
-          <p style={{marginBottom:12}}>To enable automatic Google Sheets sync, follow these steps:</p>
-          <ol style={{paddingLeft:20,display:'flex',flexDirection:'column',gap:8}}>
-            <li>Go to <a href="https://console.cloud.google.com" target="_blank" style={{color:'var(--accent)'}}>Google Cloud Console</a></li>
-            <li>Create a new project and enable the Google Sheets API</li>
-            <li>Create service account credentials and download the JSON key</li>
-            <li>Share your Google Sheet with the service account email</li>
-            <li>Add the Sheet ID to your backend environment variables</li>
-            <li>Use the export CSV option for manual import in the meantime</li>
-          </ol>
+      <div className="card" style={{background:'rgba(110,231,183,0.04)',border:'1px solid rgba(110,231,183,0.2)'}}>
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:4,color:'var(--accent)'}}>📊 Google Sheets — Connected ✅</h3>
+        <div style={{fontSize:13,color:'var(--text2)',marginBottom:16,wordBreak:'break-all',fontFamily:'monospace',background:'var(--surface2)',padding:'8px 12px',borderRadius:8,marginTop:8}}>
+          {SHEETS_URL.slice(0,60)}...
+        </div>
+        <div style={{fontSize:14,color:'var(--text2)',marginBottom:16,lineHeight:1.8}}>
+          <div>✅ Students auto-load from <b style={{color:'var(--text)'}}>Students</b> sheet on login</div>
+          <div>✅ New students are pushed to <b style={{color:'var(--text)'}}>Students</b> sheet instantly</div>
+          <div>✅ Every attendance mark is pushed to <b style={{color:'var(--text)'}}>Attendance</b> sheet instantly</div>
+        </div>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          <button className="btn btn-accent" onClick={onSync} disabled={syncing}>
+            {syncing ? '⟳ Syncing...' : '🔄 Sync Students from Sheets Now'}
+          </button>
+          <a href="https://docs.google.com/spreadsheets" target="_blank" rel="noopener noreferrer"
+            className="btn btn-outline" style={{textDecoration:'none',color:'var(--text)'}}>
+            🔗 Open Google Sheets
+          </a>
         </div>
       </div>
     </div>
@@ -1574,12 +1690,47 @@ function Settings({ sessions, setSessions, toast }) {
 function App() {
   const [loggedIn, setLoggedIn] = useState(() => store.get('loggedIn', false));
   const [page, setPage] = useState('dashboard');
-  const [students, setStudents] = useState(() => store.get('students', DEMO_STUDENTS));
+  const [students, setStudents] = useState(() => store.get('students', []));
   const [attendance, setAttendance] = useState(() => store.get('attendance', []));
   const [sessions, setSessions] = useState(() => store.get('sessions', DEFAULT_SESSIONS));
   const [toastData, setToastData] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
 
   const toast = (msg, type='success') => setToastData({ msg, type, key: Date.now() });
+
+  // Load students from Google Sheets when logged in
+  useEffect(() => {
+    if (loggedIn) loadStudentsFromSheets();
+  }, [loggedIn]);
+
+  const loadStudentsFromSheets = async () => {
+    setSyncing(true);
+    setSyncStatus('Syncing students from Google Sheets...');
+    try {
+      const sheetStudents = await sheetsAPI.getStudents();
+      if (sheetStudents.length > 0) {
+        // Merge: keep local photo/faceRegistered data, update details from sheet
+        setStudents(prev => {
+          const merged = sheetStudents.map(ss => {
+            const existing = prev.find(p => p.phone === ss.phone || p.email === ss.email);
+            return existing ? { ...ss, id: existing.id, photo: existing.photo, faceRegistered: existing.faceRegistered } : ss;
+          });
+          store.set('students', merged);
+          return merged;
+        });
+        setSyncStatus('✅ ' + sheetStudents.length + ' students loaded from Google Sheets');
+      } else {
+        setSyncStatus('ℹ️ No students found in Google Sheets yet');
+      }
+    } catch(e) {
+      setSyncStatus('⚠️ Could not connect to Google Sheets — using local data');
+      // Fall back to demo data if no local data
+      setStudents(prev => prev.length === 0 ? DEMO_STUDENTS : prev);
+    }
+    setSyncing(false);
+    setTimeout(() => setSyncStatus(''), 4000);
+  };
 
   const handleLogin = (user) => { store.set('loggedIn', true); setLoggedIn(true); };
   const handleLogout = () => { store.set('loggedIn', false); setLoggedIn(false); setPage('dashboard'); };
@@ -1587,18 +1738,31 @@ function App() {
   if (!loggedIn) return <LoginPage onLogin={handleLogin}/>;
 
   const pages = {
-    dashboard: <Dashboard students={students} attendance={attendance} setPage={setPage} sessions={sessions}/>,
+    dashboard: <Dashboard students={students} attendance={attendance} setPage={setPage} sessions={sessions} syncing={syncing} syncStatus={syncStatus} onSync={loadStudentsFromSheets}/>,
     mark: <MarkAttendance students={students} attendance={attendance} setAttendance={setAttendance} sessions={sessions} toast={toast}/>,
-    students: <StudentsPage students={students} setStudents={setStudents} toast={toast}/>,
+    students: <StudentsPage students={students} setStudents={setStudents} toast={toast} onSync={loadStudentsFromSheets} syncing={syncing}/>,
     records: <AttendanceRecords attendance={attendance} setAttendance={setAttendance} students={students} sessions={sessions} toast={toast}/>,
     reports: <Reports attendance={attendance} students={students} sessions={sessions} toast={toast}/>,
-    settings: <Settings sessions={sessions} setSessions={setSessions} toast={toast}/>,
+    settings: <Settings sessions={sessions} setSessions={setSessions} toast={toast} onSync={loadStudentsFromSheets} syncing={syncing}/>,
   };
 
   return (
     <div className="app-layout">
       <Sidebar page={page} setPage={setPage} onLogout={handleLogout}/>
       <div className="main-content">
+        {syncStatus && (
+          <div style={{
+            marginBottom:16, padding:'10px 16px',
+            background: syncStatus.startsWith('✅') ? 'rgba(110,231,183,0.08)' : syncStatus.startsWith('⚠️') ? 'rgba(251,191,36,0.08)' : 'rgba(129,140,248,0.08)',
+            border: '1px solid ' + (syncStatus.startsWith('✅') ? 'rgba(110,231,183,0.2)' : syncStatus.startsWith('⚠️') ? 'rgba(251,191,36,0.2)' : 'rgba(129,140,248,0.2)'),
+            borderRadius:10, fontSize:13,
+            color: syncStatus.startsWith('✅') ? 'var(--accent)' : syncStatus.startsWith('⚠️') ? 'var(--warning)' : 'var(--accent2)',
+            display:'flex', alignItems:'center', gap:8
+          }}>
+            {syncing && <span style={{display:'inline-block',animation:'spin 1s linear infinite'}}>⟳</span>}
+            {syncStatus}
+          </div>
+        )}
         {pages[page] || pages.dashboard}
       </div>
       {toastData && <Toast key={toastData.key} msg={toastData.msg} type={toastData.type} onClose={() => setToastData(null)}/>}
