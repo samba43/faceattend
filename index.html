@@ -520,17 +520,20 @@
     position: fixed; bottom: 0; left: 0; right: 0;
     background: var(--surface);
     border-top: 1px solid var(--border);
-    z-index: 200;
-    padding: 6px 0 env(safe-area-inset-bottom, 6px);
+    z-index: 9999;
+    padding: 6px 0 env(safe-area-inset-bottom, 8px);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
   }
   .mobile-nav-inner {
     display: flex; justify-content: space-around; align-items: center;
+    width: 100%;
   }
   .mobile-nav-item {
     display: flex; flex-direction: column; align-items: center;
-    gap: 2px; padding: 6px 10px; cursor: pointer;
-    color: var(--text2); font-size: 11px; font-weight: 500;
-    border-radius: 10px; transition: all 0.15s; min-width: 52px;
+    gap: 2px; padding: 6px 4px; cursor: pointer;
+    color: var(--text2); font-size: 10px; font-weight: 500;
+    border-radius: 10px; transition: all 0.15s;
+    flex: 1; min-width: 0; -webkit-tap-highlight-color: transparent;
   }
   .mobile-nav-item .mn-icon { font-size: 20px; }
   .mobile-nav-item.active { color: var(--accent); }
@@ -552,7 +555,7 @@
   /* ── RESPONSIVE ── */
   @media (max-width: 768px) {
     .sidebar { display: none !important; }
-    .mobile-nav { display: block; }
+    .mobile-nav { display: flex; flex-direction: column; }
     .mobile-header { display: flex; }
     .main-content {
       margin-left: 0 !important;
@@ -603,14 +606,8 @@ const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day:'numeric', mo
 const fmtTime = () => new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
 const uid = () => Math.random().toString(36).slice(2,9);
 
-// ─── Initial Demo Data ────────────────────────────────────────────────────────
-const DEMO_STUDENTS = [
-  { id:'s1', name:'Aisha Sharma', phone:'9876543210', email:'aisha@email.com', joinDate:'2024-01-10', photo:null, faceRegistered: true },
-  { id:'s2', name:'Rohit Kumar', phone:'9876543211', email:'rohit@email.com', joinDate:'2024-01-15', photo:null, faceRegistered: true },
-  { id:'s3', name:'Priya Nair', phone:'9876543212', email:'priya@email.com', joinDate:'2024-02-01', photo:null, faceRegistered: true },
-  { id:'s4', name:'Arjun Patel', phone:'9876543213', email:'arjun@email.com', joinDate:'2024-02-10', photo:null, faceRegistered: false },
-  { id:'s5', name:'Meena Reddy', phone:'9876543214', email:'meena@email.com', joinDate:'2024-03-01', photo:null, faceRegistered: true },
-];
+// ─── Initial Data (no demo students — real data only) ────────────────────────
+const DEMO_STUDENTS = []; // Empty — students come from Google Sheets or manual entry
 
 const DEFAULT_SESSIONS = ['Morning 9AM', 'Afternoon 2PM', 'Evening 6PM'];
 
@@ -624,70 +621,51 @@ const store = {
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx6uzEAnSArweRssJ6ylj80yyGjiAOEMnWcMo6LPlXkhkmFK0jglx9TIqCEF96au7-l1w/exec';
 
 const sheetsAPI = {
-  // GET: fetch students - uses jsonp-style via script tag to bypass CORS
-  getStudents: () => new Promise((resolve, reject) => {
-    const cbName = 'cb_' + Date.now();
-    const script = document.createElement('script');
-    const timeout = setTimeout(() => {
-      delete window[cbName];
-      document.body.removeChild(script);
-      reject(new Error('Timeout'));
-    }, 10000);
-    window[cbName] = (data) => {
-      clearTimeout(timeout);
-      delete window[cbName];
-      try { document.body.removeChild(script); } catch(e){}
-      if (data.success) {
-        const students = (data.data || []).map(row => ({
-          id: uid(),
-          name: String(row['Name'] || '').trim(),
-          phone: String(row['Phone'] || '').trim(),
-          email: String(row['Email'] || '').trim(),
-          joinDate: String(row['JoinDate'] || today()),
-          faceRegistered: String(row['FaceRegistered'] || '').toLowerCase() === 'true',
-          photo: null,
-        })).filter(s => s.name);
-        resolve(students);
-      } else {
-        reject(new Error(data.error || 'Unknown error'));
-      }
-    };
-    script.src = SHEETS_URL + '?sheet=Students&callback=' + cbName;
-    script.onerror = () => { clearTimeout(timeout); reject(new Error('Script load failed')); };
-    document.body.appendChild(script);
+  // GET students using allorigins CORS proxy — reliable on all browsers + mobile
+  getStudents: async () => {
+    const url = SHEETS_URL + '?sheet=Students';
+    const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+    const res = await fetch(proxy, { cache: 'no-cache' });
+    if (!res.ok) throw new Error('Proxy fetch failed: ' + res.status);
+    const outer = await res.json();
+    const data = JSON.parse(outer.contents);
+    if (!data.success) throw new Error(data.error || 'Sheets error');
+    return (data.data || []).map(row => ({
+      id: uid(),
+      name:  String(row['Name']  || '').trim(),
+      phone: String(row['Phone'] || '').trim(),
+      email: String(row['Email'] || '').trim(),
+      joinDate: String(row['JoinDate'] || today()).trim(),
+      faceRegistered: String(row['FaceRegistered'] || '').toLowerCase() === 'true',
+      photo: null,
+    })).filter(s => s.name);
+  },
+
+  // POST via no-cors — Google Apps Script saves the data even without a response
+  _post: async (payload) => {
+    await fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    return true;
+  },
+
+  addAttendance: (entry) => sheetsAPI._post({
+    action: 'append', sheet: 'Attendance',
+    row: [entry.date, entry.studentName, entry.session, entry.status, entry.time, entry.method || 'Manual']
   }),
 
-  // POST via no-cors (fire and forget — can't read response but data gets saved)
-  _post: async (payload) => {
-    try {
-      // Try with form-encoded to handle CORS preflight better
-      const form = new FormData();
-      form.append('data', JSON.stringify(payload));
-      await fetch(SHEETS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-      return true;
-    } catch(e) {
-      throw e;
-    }
-  },
+  addStudent: (student) => sheetsAPI._post({
+    action: 'append', sheet: 'Students',
+    row: [student.name, student.phone, student.email, student.joinDate, student.faceRegistered ? 'true' : 'false']
+  }),
 
-  addAttendance: async (entry) => {
-    return sheetsAPI._post({
-      action: 'append', sheet: 'Attendance',
-      row: [entry.date, entry.studentName, entry.session, entry.status, entry.time, entry.method || 'Manual']
-    });
-  },
-
-  addStudent: async (student) => {
-    return sheetsAPI._post({
-      action: 'append', sheet: 'Students',
-      row: [student.name, student.phone, student.email, student.joinDate, student.faceRegistered ? 'true' : 'false']
-    });
-  },
-
-  syncAllStudents: async (students) => {
-    const rows = students.map(s => [s.name, s.phone, s.email, s.joinDate, s.faceRegistered ? 'true' : 'false']);
-    return sheetsAPI._post({ action: 'sync_students', sheet: 'Students', rows });
-  }
+  syncAllStudents: (students) => sheetsAPI._post({
+    action: 'sync_students', sheet: 'Students',
+    rows: students.map(s => [s.name, s.phone, s.email, s.joinDate, s.faceRegistered ? 'true' : 'false'])
+  })
 };
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -698,24 +676,29 @@ function Toast({ msg, type, onClose }) {
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
+// ── ADMIN CREDENTIALS — change these to your own ──
+const ADMIN_EMAIL    = 'admin@faceattend.com';
+const ADMIN_PASSWORD = 'FaceAttend@2025';
+
 function LoginPage({ onLogin }) {
-  const [email, setEmail] = useState('admin@faceattend.com');
-  const [pass, setPass] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   const handleLogin = () => {
     setErr('');
-    if (!email || !pass) { setErr('Please fill all fields'); return; }
+    if (!email.trim() || !pass.trim()) { setErr('Please enter email and password'); return; }
     setLoading(true);
     setTimeout(() => {
-      if (email === 'admin@faceattend.com' && pass === 'admin123') {
+      if (email.trim().toLowerCase() === ADMIN_EMAIL && pass === ADMIN_PASSWORD) {
         onLogin({ email, name: 'Admin' });
       } else {
-        setErr('Invalid credentials. Use admin@faceattend.com / admin123');
+        setErr('Incorrect email or password');
         setLoading(false);
       }
-    }, 800);
+    }, 700);
   };
 
   return (
@@ -737,19 +720,22 @@ function LoginPage({ onLogin }) {
         </div>
         <div className="field-group">
           <div className="field-label">Password</div>
-          <input className="field-input" type="password" value={pass}
-            onChange={e => setPass(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            placeholder="••••••••"/>
+          <div style={{position:'relative'}}>
+            <input className="field-input" type={showPass ? 'text' : 'password'} value={pass}
+              onChange={e => setPass(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              placeholder="Enter your password"
+              style={{paddingRight:44}}/>
+            <button onClick={() => setShowPass(p=>!p)}
+              style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'var(--text2)'}}>
+              {showPass ? '🙈' : '👁️'}
+            </button>
+          </div>
         </div>
         <button className="btn-primary" onClick={handleLogin} disabled={loading}>
           {loading ? 'Signing in...' : '→ Sign In'}
         </button>
         {err && <div className="error-msg">{err}</div>}
-        <div style={{marginTop:20,padding:'12px 16px',background:'rgba(110,231,183,0.06)',borderRadius:10,border:'1px solid rgba(110,231,183,0.15)'}}>
-          <div style={{fontSize:12,color:'var(--text2)',marginBottom:4}}>Demo Credentials</div>
-          <div style={{fontSize:13,color:'var(--accent)',fontFamily:'monospace'}}>admin@faceattend.com / admin123</div>
-        </div>
       </div>
     </div>
   );
@@ -885,6 +871,7 @@ function MarkAttendance({ students, attendance, setAttendance, sessions, toast }
   const streamRef = useRef(null);
   const scanTimerRef = useRef(null);
   const [camError, setCamError] = useState('');
+  const [facingMode, setFacingMode] = useState('user');
 
   useEffect(() => {
     const todayAtt = attendance.filter(a => a.date === today() && a.session === selectedSession);
@@ -908,8 +895,16 @@ function MarkAttendance({ students, attendance, setAttendance, sessions, toast }
       return;
     }
     try {
-      const constraints = { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Try with facingMode first, fall back to any camera if it fails
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+      } catch(e) {
+        // Fallback: just get any available camera
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
       streamRef.current = stream;
       setScanning(true); // mounts <video> element, then useEffect above attaches stream
       setTimeout(() => simulateScan(), 600);
@@ -1012,14 +1007,17 @@ function MarkAttendance({ students, attendance, setAttendance, sessions, toast }
       </div>
 
       {!manualMode ? (
-        <div className="camera-area">
-          <div style={{flex:1}}>
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          {/* Camera Box */}
+          <div style={{width:'100%'}}>
             <div className="camera-box">
               {!scanning ? (
                 <div className="camera-overlay">
                   <div className="camera-icon">📷</div>
-                  <p style={{color:'var(--text2)',fontSize:14}}>Camera is off</p>
-                  <button className="btn btn-accent" style={{marginTop:8}} onClick={startCamera}>
+                  <p style={{color:'var(--text2)',fontSize:14,textAlign:'center',padding:'0 16px'}}>
+                    Point camera at student face to mark attendance
+                  </p>
+                  <button className="btn btn-accent" style={{marginTop:12,padding:'14px 32px',fontSize:16}} onClick={startCamera}>
                     ▶ Start Camera
                   </button>
                   {camError && (
@@ -1030,7 +1028,7 @@ function MarkAttendance({ students, attendance, setAttendance, sessions, toast }
                 </div>
               ) : (
                 <>
-                  <video ref={videoRef} autoPlay muted playsInline style={{width:'100%',height:'340px',objectFit:'cover',borderRadius:'14px',display:'block',position:'relative',zIndex:1}}/>
+                  <video ref={videoRef} autoPlay muted playsInline style={{width:'100%',height:'300px',objectFit:'cover',borderRadius:'14px',display:'block',position:'relative',zIndex:1}}/>
                   <div className="scan-corners">
                     <div className="scan-corner sc-tl"/>
                     <div className="scan-corner sc-tr"/>
@@ -1039,13 +1037,13 @@ function MarkAttendance({ students, attendance, setAttendance, sessions, toast }
                   </div>
                   {recognized ? (
                     <div className="recognized-banner">
-                      <div style={{fontSize:28,marginBottom:4}}>✅</div>
+                      <div style={{fontSize:32,marginBottom:4}}>✅</div>
                       <div className="recognized-name">{recognized.name}</div>
                       <div className="recognized-sub">Recognized · Marking Present...</div>
                     </div>
                   ) : (
                     <div style={{position:'absolute',bottom:16,left:0,right:0,textAlign:'center',zIndex:4}}>
-                      <div style={{display:'inline-block',background:'rgba(10,10,15,0.8)',padding:'6px 16px',borderRadius:20,fontSize:13,color:'var(--text2)'}}>
+                      <div style={{display:'inline-block',background:'rgba(10,10,15,0.85)',padding:'8px 20px',borderRadius:20,fontSize:13,color:'var(--text2)'}}>
                         🔍 Scanning for faces...
                       </div>
                     </div>
@@ -1054,39 +1052,51 @@ function MarkAttendance({ students, attendance, setAttendance, sessions, toast }
                 </>
               )}
             </div>
-            {scanning && (
-              <div style={{marginTop:12,display:'flex',justifyContent:'center'}}>
-                <button className="btn btn-outline" onClick={stopCamera}>⏹ Stop Camera</button>
-              </div>
-            )}
+            {/* Camera controls — always visible */}
+            <div style={{marginTop:12,display:'flex',justifyContent:'center',gap:10,flexWrap:'wrap'}}>
+              {scanning ? (
+                <>
+                  <button className="btn btn-outline" style={{flex:1,maxWidth:160,justifyContent:'center'}} onClick={() => {
+                    stopCamera();
+                    setFacingMode(f => f === 'user' ? 'environment' : 'user');
+                    setTimeout(() => startCamera(), 400);
+                  }}>🔄 Flip Camera</button>
+                  <button className="btn btn-outline" style={{flex:1,maxWidth:160,justifyContent:'center'}} onClick={stopCamera}>⏹ Stop</button>
+                </>
+              ) : null}
+            </div>
           </div>
 
-          <div className="attendance-list-panel">
-            <div className="card" style={{padding:16}}>
-              <div style={{fontSize:14,fontWeight:600,marginBottom:12}}>
-                {selectedSession} — {todayMarked.length}/{students.length} marked
-              </div>
-              <div style={{maxHeight:400,overflowY:'auto'}}>
-                {students.length === 0 ? (
-                  <div className="empty-state"><div className="es-icon">👥</div><p>No students yet</p></div>
-                ) : students.map(s => {
-                  const st = getStatus(s.id);
-                  return (
-                    <div key={s.id} className="attendance-entry">
-                      <div className="student-avatar">{s.name.charAt(0)}</div>
-                      <div style={{flex:1}}>
-                        <div className="student-name">{s.name}</div>
-                        <div style={{fontSize:11,color:'var(--text2)'}}>{s.faceRegistered ? '✅ Face registered' : '⚠️ No face data'}</div>
-                      </div>
-                      {st ? (
-                        <span className={`status-badge ${st.toLowerCase()}`}>{st}</span>
-                      ) : (
-                        <span style={{fontSize:12,color:'var(--text2)'}}>—</span>
-                      )}
+          {/* Student list — always visible below camera */}
+          <div className="card" style={{padding:16}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span>{selectedSession}</span>
+              <span style={{color:'var(--accent)'}}>{todayMarked.filter(a=>a.status==='Present').length}/{students.length} Present</span>
+            </div>
+            <div style={{maxHeight:300,overflowY:'auto'}}>
+              {students.length === 0 ? (
+                <div className="empty-state" style={{padding:'30px 20px'}}>
+                  <div className="es-icon">👥</div>
+                  <p>No students yet</p>
+                  <small>Add students first</small>
+                </div>
+              ) : students.map(s => {
+                const st = getStatus(s.id);
+                return (
+                  <div key={s.id} className="attendance-entry">
+                    <div className="student-avatar">{s.name.charAt(0)}</div>
+                    <div style={{flex:1}}>
+                      <div className="student-name">{s.name}</div>
+                      <div style={{fontSize:11,color:'var(--text2)'}}>{s.faceRegistered ? '✅ Registered' : '⚠️ No face'}</div>
                     </div>
-                  );
-                })}
-              </div>
+                    {st ? (
+                      <span className={`status-badge ${st.toLowerCase()}`}>{st}</span>
+                    ) : (
+                      <span style={{fontSize:12,color:'var(--text2)'}}>—</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1710,10 +1720,13 @@ function Settings({ sessions, setSessions, toast, onSync, syncing }) {
 
       <div className="card mb-24">
         <h3 style={{fontSize:16,fontWeight:700,marginBottom:12}}>👤 Admin Account</h3>
-        <div style={{fontSize:14,color:'var(--text2)',lineHeight:2}}>
-          <div>Email: <span style={{color:'var(--text)'}}>admin@faceattend.com</span></div>
+        <div style={{fontSize:14,color:'var(--text2)',lineHeight:2.2}}>
+          <div>Email: <span style={{color:'var(--accent)',fontFamily:'monospace'}}>{ADMIN_EMAIL}</span></div>
+          <div>Password: <span style={{color:'var(--accent)',fontFamily:'monospace'}}>{ADMIN_PASSWORD}</span></div>
           <div>Role: <span style={{color:'var(--accent)'}}>Super Admin</span></div>
-          <div>Access Level: <span style={{color:'var(--text)'}}>Full Access</span></div>
+        </div>
+        <div style={{marginTop:12,padding:'10px 14px',background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.2)',borderRadius:8,fontSize:12,color:'var(--warning)'}}>
+          ⚠️ To change credentials, edit ADMIN_EMAIL and ADMIN_PASSWORD at the top of the script in index.html
         </div>
       </div>
 
@@ -1745,7 +1758,14 @@ function Settings({ sessions, setSessions, toast, onSync, syncing }) {
 function App() {
   const [loggedIn, setLoggedIn] = useState(() => store.get('loggedIn', false));
   const [page, setPage] = useState('dashboard');
-  const [students, setStudents] = useState(() => store.get('students', []));
+  const [students, setStudents] = useState(() => {
+    // Purge any old demo students (s1-s5) that got saved to localStorage
+    const saved = store.get('students', []);
+    const demoIds = ['s1','s2','s3','s4','s5'];
+    const cleaned = saved.filter(s => !demoIds.includes(s.id));
+    if (cleaned.length !== saved.length) store.set('students', cleaned); // save cleaned list
+    return cleaned;
+  });
   const [attendance, setAttendance] = useState(() => store.get('attendance', []));
   const [sessions, setSessions] = useState(() => store.get('sessions', DEFAULT_SESSIONS));
   const [toastData, setToastData] = useState(null);
@@ -1807,10 +1827,11 @@ function App() {
   };
 
   const mobileNav = [
-    { id:'dashboard', icon:'⚡', label:'Home' },
-    { id:'mark',      icon:'📷', label:'Attend' },
+    { id:'dashboard', icon:'⚡', label:'Home'     },
+    { id:'mark',      icon:'📷', label:'Attend'   },
     { id:'students',  icon:'👥', label:'Students' },
-    { id:'reports',   icon:'📊', label:'Reports' },
+    { id:'records',   icon:'📋', label:'Records'  },
+    { id:'reports',   icon:'📊', label:'Reports'  },
     { id:'settings',  icon:'⚙️', label:'Settings' },
   ];
 
